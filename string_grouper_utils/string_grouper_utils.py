@@ -69,10 +69,7 @@ def new_group_rep_by_completeness(grouped_data: pd.DataFrame,
         tested_cols = grouped_data
 
     def is_notnull_and_not_empty(x):
-        if x == '' or pd.isnull(x):
-            return 0
-        else:
-            return 1
+        return 0 if x == '' or pd.isnull(x) else 1
 
     weights = tested_cols.applymap(is_notnull_and_not_empty).sum(axis=1)
     return group_rep_transform('idxmax', weights, grouped_data, group_col, record_id_col, record_name_col)
@@ -137,8 +134,10 @@ def get_column(col: Union[str, int, List[Union[str, int]]], data: pd.DataFrame):
 
 
 def parse_timestamps(timestamps: pd.Series, parserinfo=None, **kwargs) -> pd.Series:
-    error_msg = "timestamps must be a Series of date-like or datetime-like strings"
-    error_msg += " or datetime datatype or pandas Timestamp datatype or numbers"
+    error_msg = (
+        "timestamps must be a Series of date-like or datetime-like strings"
+        + " or datetime datatype or pandas Timestamp datatype or numbers"
+    )
     if is_series_of_type(str, timestamps):
         # if any of the strings is not datetime-like raise an exception
         if timestamps.to_frame().applymap(is_date).squeeze().all():
@@ -172,16 +171,19 @@ def is_date(string, parserinfo=None, **kwargs):
 
 
 def is_series_of_type(what: type, series_to_test: pd.Series) -> bool:
-    if series_to_test.to_frame().applymap(
-                lambda x: not isinstance(x, what)
-            ).squeeze().any():
-        return False
-    return True
+    return (
+        not series_to_test.to_frame()
+        .applymap(lambda x: not isinstance(x, what))
+        .squeeze()
+        .any()
+    )
 
 
 # The following lines modify and append the kwargs portion of the docstring of dateutil.parser.parse to
 # the docstring of new_group_rep_by_earliest_timestamp:
-parse_docstring_kwargs = re.search(':param parserinfo:.*?:return:', pydoc.render_doc(parse), flags=re.DOTALL).group(0)
+parse_docstring_kwargs = re.search(
+    ':param parserinfo:.*?:return:', pydoc.render_doc(parse), flags=re.DOTALL
+)[0]
 parse_docstring_kwargs = re.sub(
     '``timestr``',
     'the strings containing the date/time-stamps',

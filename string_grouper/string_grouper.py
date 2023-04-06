@@ -427,7 +427,7 @@ class StringGrouper(object):
                 # end of inner loop
 
             self._true_max_n_matches = \
-                max(block_true_max_n_matches, self._true_max_n_matches)
+                    max(block_true_max_n_matches, self._true_max_n_matches)
             if len(block_ranges_right) > 1:
                 # Note: awesome_hstack_topn will sort each row only when
                 # _max_n_matches < length of _right_Series or sort=True
@@ -446,10 +446,7 @@ class StringGrouper(object):
             del matches
             # end of outer loop
 
-        if len(block_ranges_left) > 1:
-            return vstack(vblocks)
-        else:
-            return vblocks[0]
+        return vstack(vblocks) if len(block_ranges_left) > 1 else vblocks[0]
 
     def _fit_blockwise_auto(self,
                             left_partition=(None, None),
@@ -540,11 +537,7 @@ class StringGrouper(object):
                     vblocks.append(hblocks[0])
                 del hblocks
                 # end of outer loop
-            if len(left_halves) > 1:
-                return vstack(vblocks)
-            else:
-                return vblocks[0]
-
+            return vstack(vblocks) if len(left_halves) > 1 else vblocks[0]
         if whoami == 0:
             self._true_max_n_matches = true_max_n_matches
         return matches
@@ -637,7 +630,7 @@ class StringGrouper(object):
             # in _matches_list due to our use of sparse matrices
             non_matches_list = self._get_non_matches_list()
             matches_list = self._matches_list if non_matches_list.empty else \
-                pd.concat([self._matches_list, non_matches_list], axis=0, ignore_index=True)
+                    pd.concat([self._matches_list, non_matches_list], axis=0, ignore_index=True)
 
         left_side, right_side = get_both_sides(self._master, self._duplicates, drop_index=ignore_index)
         similarity = matches_list.similarity.reset_index(drop=True)
@@ -650,23 +643,22 @@ class StringGrouper(object):
                 ],
                 axis=1
             )
-        else:
-            left_side_id, right_side_id = get_both_sides(
-                self._master_id,
-                self._duplicates_id,
-                (DEFAULT_ID_NAME, DEFAULT_ID_NAME),
-                drop_index=True
-            )
-            return pd.concat(
-                [
-                    prefix_column_names(left_side, LEFT_PREFIX),
-                    prefix_column_names(left_side_id, LEFT_PREFIX),
-                    similarity,
-                    prefix_column_names(right_side_id, RIGHT_PREFIX),
-                    prefix_column_names(right_side, RIGHT_PREFIX)
-                ],
-                axis=1
-            )
+        left_side_id, right_side_id = get_both_sides(
+            self._master_id,
+            self._duplicates_id,
+            (DEFAULT_ID_NAME, DEFAULT_ID_NAME),
+            drop_index=True
+        )
+        return pd.concat(
+            [
+                prefix_column_names(left_side, LEFT_PREFIX),
+                prefix_column_names(left_side_id, LEFT_PREFIX),
+                similarity,
+                prefix_column_names(right_side_id, RIGHT_PREFIX),
+                prefix_column_names(right_side, RIGHT_PREFIX)
+            ],
+            axis=1
+        )
 
     @validate_is_fit
     def get_groups(self,
@@ -689,10 +681,9 @@ class StringGrouper(object):
             ignore_index = self._config.ignore_index
         if self._duplicates is None:
             return self._deduplicate(ignore_index=ignore_index)
-        else:
-            if replace_na is None:
-                replace_na = self._config.replace_na
-            return self._get_nearest_matches(ignore_index=ignore_index, replace_na=replace_na)
+        if replace_na is None:
+            replace_na = self._config.replace_na
+        return self._get_nearest_matches(ignore_index=ignore_index, replace_na=replace_na)
 
     def match_strings(self,
                       master: pd.Series,
@@ -748,9 +739,7 @@ class StringGrouper(object):
         self.reset_data(master, duplicates, master_id, duplicates_id)
 
         old_max_n_matches = self._max_n_matches
-        new_max_n_matches = None
-        if 'max_n_matches' in kwargs:
-            new_max_n_matches = kwargs['max_n_matches']
+        new_max_n_matches = kwargs.get('max_n_matches')
         kwargs['max_n_matches'] = 1
         self.update_options(**kwargs)
 
@@ -920,7 +909,7 @@ class StringGrouper(object):
                              ignore_index=False,
                              replace_na=False) -> Union[pd.DataFrame, pd.Series]:
         prefix = MOST_SIMILAR_PREFIX
-        master_label = f'{prefix}{self._master.name if self._master.name else DEFAULT_MASTER_NAME}'
+        master_label = f'{prefix}{self._master.name or DEFAULT_MASTER_NAME}'
         master = self._master.rename(master_label).reset_index(drop=ignore_index)
         dupes = self._duplicates.rename('duplicates').reset_index(drop=ignore_index)
 
@@ -932,7 +921,7 @@ class StringGrouper(object):
             )
 
         if self._master_id is not None:
-            master_id_label = f'{prefix}{self._master_id.name if self._master_id.name else DEFAULT_MASTER_ID_NAME}'
+            master_id_label = f'{prefix}{self._master_id.name or DEFAULT_MASTER_ID_NAME}'
             master = pd.concat([master, self._master_id.rename(master_id_label).reset_index(drop=True)], axis=1)
             dupes = pd.concat([dupes, self._duplicates_id.rename('duplicates_id').reset_index(drop=True)], axis=1)
 
@@ -958,20 +947,20 @@ class StringGrouper(object):
             # For some weird reason, pandas' merge function changes int-datatype columns to float when NaN values
             # appear within them. So here we change them back to their original datatypes if possible:
             if dupes_max_sim[master_id_label].dtype != self._master_id.dtype and \
-                    self._duplicates_id.dtype == self._master_id.dtype:
+                        self._duplicates_id.dtype == self._master_id.dtype:
                 dupes_max_sim.loc[:, master_id_label] = \
-                    dupes_max_sim.loc[:, master_id_label].astype(self._master_id.dtype)
+                        dupes_max_sim.loc[:, master_id_label].astype(self._master_id.dtype)
 
         # Prepare the output:
         required_column_list = [master_label] if self._master_id is None else [master_id_label, master_label]
         index_column_list = \
-            [col for col in master.columns if col not in required_column_list] \
-            if isinstance(master, pd.DataFrame) else []
+                [col for col in master.columns if col not in required_column_list] \
+                if isinstance(master, pd.DataFrame) else []
         if replace_na:
             # Update the master index-columns with the duplicates index-column values in cases were there is no match
             dupes_index_columns = [col for col in dupes.columns if str(col) != 'duplicates']
             dupes_max_sim.loc[rows_to_update, index_column_list] = \
-                dupes_max_sim.loc[rows_to_update, dupes_index_columns].values
+                    dupes_max_sim.loc[rows_to_update, dupes_index_columns].values
 
             # Restore their original datatypes if possible:
             for m, d in zip(index_column_list, dupes_index_columns):
@@ -1019,7 +1008,7 @@ class StringGrouper(object):
         # Determine the group representatives AND merge with indices:
         # pandas groupby transform function and enlargement enable both respectively in one step:
         group_of_master_index['group_rep'] = \
-            group_of_master_index.groupby('raw_group_id', sort=False)['weight'].transform(method)
+                group_of_master_index.groupby('raw_group_id', sort=False)['weight'].transform(method)
 
         # Prepare the output:
         prefix = GROUP_REP_PREFIX
@@ -1032,7 +1021,7 @@ class StringGrouper(object):
                 inplace=True
             )
         if self._master_id is not None:
-            id_label = f'{prefix}{self._master_id.name if self._master_id.name else DEFAULT_ID_NAME}'
+            id_label = f'{prefix}{self._master_id.name or DEFAULT_ID_NAME}'
             # use group rep indexes obtained above to select the corresponding string IDs:
             output_id = self._master_id.iloc[group_of_master_index.group_rep].rename(id_label).reset_index(drop=True)
             output = pd.concat([output_id, output], axis=1)
@@ -1110,8 +1099,7 @@ class StringGrouper(object):
     def _cross_join(dupe_indices, master_indices, similarities) -> pd.DataFrame:
         x_join_index = pd.MultiIndex.from_product([master_indices, dupe_indices, similarities],
                                                   names=['master_side', 'dupe_side', 'similarity'])
-        x_joined_df = pd.DataFrame(index=x_join_index).reset_index()
-        return x_joined_df
+        return pd.DataFrame(index=x_join_index).reset_index()
 
     @staticmethod
     def _validate_strings_exist(master_side, dupe_side, master_strings, dupe_strings):
@@ -1132,11 +1120,9 @@ class StringGrouper(object):
 
     @staticmethod
     def _is_input_data_combination_valid(duplicates, master_id, duplicates_id) -> bool:
-        if duplicates is None and (duplicates_id is not None) \
-                or duplicates is not None and ((master_id is None) ^ (duplicates_id is None)):
-            return False
-        else:
-            return True
+        return (duplicates is not None or duplicates_id is None) and (
+            duplicates is None or not (master_id is None) ^ (duplicates_id is None)
+        )
 
     @staticmethod
     def _validate_id_data(master, duplicates, master_id, duplicates_id):
